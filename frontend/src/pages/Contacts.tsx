@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
 import { format } from 'date-fns';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/auth';
 
 type Contact = {
   id: string;
@@ -9,9 +11,11 @@ type Contact = {
   phone?: string;
   photo?: string;
   createdAt: string;
+  ownerId?: string;
 };
 
 export default function Contacts() {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -21,6 +25,7 @@ export default function Contacts() {
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentUser = useAuthStore((s) => s.user);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
 
@@ -54,6 +59,7 @@ export default function Contacts() {
           <option value="DESC">Desc</option>
           <option value="ASC">Asc</option>
         </select>
+        <Link to="/contacts/new" className="ml-auto bg-blue-600 text-white px-3 py-2 rounded">New Contact</Link>
       </div>
       {loading && <div>Loading...</div>}
       {error && <div className="text-red-600 text-sm">{error}</div>}
@@ -62,15 +68,29 @@ export default function Contacts() {
           {contacts.map((c) => (
             <div key={c.id} className="bg-white rounded shadow p-4 flex gap-3">
               {c.photo ? (
-                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/${c.photo}`} alt={c.name} className="w-16 h-16 rounded object-cover" />
+                <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/${c.photo}`} alt={c.name} className="w-24 h-24 rounded object-cover" />
               ) : (
-                <div className="w-16 h-16 rounded bg-gray-200 flex items-center justify-center text-gray-500">NA</div>
+                <div className="w-24 h-24 rounded bg-gray-200 flex items-center justify-center text-gray-500">NA</div>
               )}
               <div>
                 <div className="font-semibold">{c.name}</div>
                 <div className="text-sm text-gray-600">{c.email || '-'}</div>
                 <div className="text-sm text-gray-600">{c.phone || '-'}</div>
                 <div className="text-xs text-gray-400 mt-1">{format(new Date(c.createdAt), 'PP p')}</div>
+                {(currentUser?.role === 'admin' || currentUser?.id === c.ownerId) && (
+                  <div className="mt-2 flex gap-2">
+                    <button className="px-2 py-1 text-sm border rounded" onClick={() => navigate(`/contacts/${c.id}`)}>Edit</button>
+                    <button className="px-2 py-1 text-sm border rounded text-red-600" onClick={async () => {
+                      if (!confirm('Delete this contact?')) return;
+                      try {
+                        await api.delete(`/contacts/${c.id}`);
+                        fetchData();
+                      } catch (err) {
+                        alert('Delete failed');
+                      }
+                    }}>Delete</button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

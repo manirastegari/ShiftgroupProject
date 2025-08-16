@@ -46,7 +46,17 @@ export class ContactsService {
     }
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    const shaped = data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      phone: c.phone,
+      photo: c.photo,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      ownerId: (c as any).owner?.id ?? undefined,
+    }));
+    return { data: shaped, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOneById(requester: { id: string; role: 'user' | 'admin' }, id: string): Promise<Contact> {
