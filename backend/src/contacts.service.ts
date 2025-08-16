@@ -30,11 +30,12 @@ export class ContactsService {
     const qb = this.contactRepository
       .createQueryBuilder('contact')
       .leftJoin('contact.owner', 'owner')
-      .addSelect(['owner.id'])
+      .addSelect(['owner.id', 'owner.name'])
       .skip(skip)
       .take(limit)
       .orderBy(`contact.${sortBy}`, sortOrder);
 
+    // If user is not admin, only show their own contacts
     if (requester.role !== 'admin') {
       qb.where('owner.id = :ownerId', { ownerId: requester.id });
     }
@@ -54,7 +55,8 @@ export class ContactsService {
       photo: c.photo,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
-      ownerId: (c as any).owner?.id ?? undefined,
+      ownerId: c.owner.id,
+      ownerName: c.owner.name,
     }));
     return { data: shaped, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
@@ -62,9 +64,12 @@ export class ContactsService {
   async findOneById(requester: { id: string; role: 'user' | 'admin' }, id: string): Promise<Contact> {
     const contact = await this.contactRepository.findOne({ where: { id }, relations: { owner: true } });
     if (!contact) throw new NotFoundException('Contact not found');
+    
+    // Check if user can access this contact
     if (requester.role !== 'admin' && contact.owner.id !== requester.id) {
-      throw new ForbiddenException('Not allowed');
+      throw new ForbiddenException('Not allowed to access this contact');
     }
+    
     return contact;
   }
 
@@ -74,6 +79,12 @@ export class ContactsService {
     data: Partial<Contact>,
   ): Promise<Contact> {
     const contact = await this.findOneById(requester, id);
+    
+    // Only allow updating photo if a new file is provided
+    if (data.photo === undefined) {
+      delete data.photo;
+    }
+    
     Object.assign(contact, data);
     return this.contactRepository.save(contact);
   }

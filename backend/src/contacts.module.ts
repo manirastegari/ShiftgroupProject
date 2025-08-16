@@ -4,12 +4,10 @@ import { Contact } from './entities/contact.entity';
 import { User } from './entities/user.entity';
 import { ContactsService } from './contacts.service';
 import { ContactsController } from './contacts.controller';
-import { RolesGuard } from './auth/roles.guard';
-import { JwtStrategy } from './auth/jwt.strategy';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Contact, User])],
-  providers: [ContactsService, RolesGuard, JwtStrategy],
+  providers: [ContactsService],
   controllers: [ContactsController],
   exports: [ContactsService],
 })

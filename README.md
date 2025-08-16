@@ -96,89 +96,318 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-# ShiftgroupProject
+# Shift Group Project - Contact Management Application
 
-Full-stack Contact Management app built with Nest.js, React, and PostgreSQL.
+A full-stack Contact Management Application built with NestJS, React, and PostgreSQL, featuring user authentication, role-based access control, and full CRUD functionality for contacts.
 
-## Features
-- JWT auth (register/login), role-based access (user/admin)
-- Contacts CRUD with photo upload (disk), pagination, search, sorting
-- Admin endpoints for users (list/get/update role/delete)
-- TypeORM + migrations, global validation, static uploads
-- React frontend with protected routes and Tailwind styling
+## 🚀 Features
 
-## Local Development
-### Prereqs
-- Node 20+, PostgreSQL 16+
+### Backend (NestJS)
+- **Secure REST API** with JWT-based authentication
+- **Role-based access control** (user/admin roles)
+- **Contact management** with full CRUD operations
+- **File upload** for contact photos
+- **Advanced filtering, sorting, and pagination**
+- **PostgreSQL database** with TypeORM and migrations
+- **Input validation** using class-validator
+- **Global error handling** and standardized API responses
 
-### Database
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-createdb shiftgroup_contacts || true
-```
+### Frontend (React)
+- **Modern, responsive UI** built with Tailwind CSS
+- **Authentication flow** with protected routes
+- **Contact management interface** with search and sorting
+- **Photo upload and preview** functionality
+- **State management** using Zustand
+- **Mobile-responsive design**
+
+## 🛠️ Tech Stack
 
 ### Backend
-```bash
-cd backend
-export JWT_SECRET=dev_secret
-export ADMIN_EMAIL=admin@example.com
-export ADMIN_PASSWORD=StrongPassword123
-npm i
-npm run build
-npm run typeOrm:run
-npm run start:dev
-# Health: http://localhost:3000/health
-```
+- **NestJS** - Progressive Node.js framework
+- **PostgreSQL** - Relational database
+- **TypeORM** - Object-relational mapping
+- **JWT** - JSON Web Token authentication
+- **Passport** - Authentication middleware
+- **Multer** - File upload handling
+- **Class-validator** - Input validation
+- **bcrypt** - Password hashing
 
 ### Frontend
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first CSS framework
+- **React Router** - Client-side routing
+- **Axios** - HTTP client
+- **Zustand** - State management
+- **Vite** - Build tool
+
+## 📋 Prerequisites
+
+- Node.js (v18 or higher)
+- PostgreSQL (v14 or higher)
+- Docker (optional, for database)
+
+## 🚀 Quick Start
+
+### 1. Clone the repository
 ```bash
-cd frontend
-echo VITE_API_URL=http://localhost:3000 > .env.local
-npm i
-npm run dev
-# Open the printed URL (http://localhost:5173 or 5174)
+git clone <repository-url>
+cd ShiftgroupProject
 ```
 
-## API (summary)
-- POST `/auth/register` { name, email, password }
-- POST `/auth/login` { email, password }
-- POST `/contacts` multipart: name, email?, phone?, photo?
-- GET `/contacts` query: page, limit, search, sortBy, sortOrder
-- GET `/contacts/:id`
-- PUT `/contacts/:id` multipart
-- DELETE `/contacts/:id`
-- Admin (JWT with role=admin):
-  - GET `/users`
-  - GET `/users/:id`
-  - PUT `/users/:id/role` { role }
-  - DELETE `/users/:id`
+### 2. Start the database
+```bash
+# Using Docker (recommended)
+docker-compose up -d
 
-## Production (GCP Cloud Run + Cloud SQL)
-1. Create Cloud SQL (PostgreSQL) instance and DB `shiftgroup_contacts`
-2. Build/push backend image to Artifact Registry:
+# Or manually start PostgreSQL and create database 'shiftgroup_contacts'
+```
+
+### 3. Backend setup
 ```bash
 cd backend
-gcloud artifacts repositories create shiftgroup-repo --repository-format=docker --location=us-central1 || true
-gcloud auth configure-docker us-central1-docker.pkg.dev
-gcloud builds submit --tag us-central1-docker.pkg.dev/$(gcloud config get project)/shiftgroup-repo/backend:latest .
+npm install
+
+# Set environment variables (create .env file)
+cp .env.example .env
+# Edit .env with your database credentials
+
+# Run database migrations
+npm run typeOrm:run
+
+# Start the development server
+npm run start:dev
 ```
-3. Deploy Cloud Run (connect to Cloud SQL):
+
+### 4. Frontend setup
 ```bash
-INSTANCE=$(gcloud sql instances describe shiftgroup-pg --format='value(connectionName)')
-gcloud run deploy shiftgroup-backend \
-  --image us-central1-docker.pkg.dev/$(gcloud config get project)/shiftgroup-repo/backend:latest \
-  --platform managed --region us-central1 --allow-unauthenticated \
-  --add-cloudsql-instances $INSTANCE \
-  --set-env-vars "DB_HOST=/cloudsql/$INSTANCE,DB_PORT=5432,DB_USER=postgres,DB_PASSWORD=<DB_PASSWORD>,DB_NAME=shiftgroup_contacts,JWT_SECRET=<RANDOM_SECRET>,DB_LOGGING=false,ADMIN_EMAIL=admin@example.com,ADMIN_PASSWORD=StrongPassword123,ADMIN_NAME=Admin" \
-  --port 8080
+cd frontend
+npm install
+
+# Start the development server
+npm run dev
 ```
-4. Use the Cloud Run URL as `VITE_API_URL` for the frontend build/hosting.
 
-## Data & uploads
-- Data: stored in PostgreSQL database `shiftgroup_contacts` (local dev) or your Cloud SQL DB
-- Images: saved under backend `uploads/` and served at `/uploads/<filename>`
+### 5. Access the application
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
 
-## Tests & Stretch Goals
-- Not yet included: CSV export, email notifications, PWA, full-text search, automated tests.
-- These can be added on request.
+## 🔧 Environment Variables
+
+Create a `.env` file in the backend directory:
+
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=shiftgroup_contacts
+DB_LOGGING=false
+
+# JWT
+JWT_SECRET=your-secret-key-here
+
+# Admin user (optional)
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123
+ADMIN_NAME=Admin User
+
+# Server
+PORT=3000
+```
+
+## 📚 API Documentation
+
+### Authentication Endpoints
+
+#### POST /auth/register
+Register a new user
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+#### POST /auth/login
+Login with existing credentials
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+### Contact Endpoints
+
+All contact endpoints require JWT authentication.
+
+#### POST /contacts
+Create a new contact
+```json
+{
+  "name": "Contact Name",
+  "email": "contact@example.com",
+  "phone": "+1234567890"
+}
+```
+
+#### GET /contacts
+Get paginated contacts with optional search and sorting
+```
+GET /contacts?page=1&limit=10&search=john&sortBy=name&sortOrder=ASC
+```
+
+#### GET /contacts/:id
+Get a specific contact
+
+#### PUT /contacts/:id
+Update a contact
+
+#### DELETE /contacts/:id
+Delete a contact
+
+### User Management (Admin only)
+
+#### GET /users
+List all users (admin only)
+
+#### PUT /users/:id/role
+Update user role (admin only)
+
+#### DELETE /users/:id
+Delete user (admin only)
+
+## 🔐 Role-Based Access Control
+
+### User Role
+- Can create, read, update, and delete their own contacts
+- Cannot access other users' contacts
+- Cannot manage users
+
+### Admin Role
+- Can access all contacts from all users
+- Can manage all users (view, update roles, delete)
+- Full system access
+
+## 🎨 UI Features
+
+- **Responsive design** that works on all devices
+- **Dark/light mode** support (coming soon)
+- **Search and filtering** for contacts
+- **Sorting** by name or creation date
+- **Pagination** for large contact lists
+- **Photo upload** with preview
+- **Form validation** with error messages
+- **Loading states** and user feedback
+
+## 🗄️ Database Schema
+
+### Users Table
+- `id` (UUID, Primary Key)
+- `name` (VARCHAR)
+- `email` (VARCHAR, Unique)
+- `passwordHash` (VARCHAR)
+- `role` (VARCHAR, Default: 'user')
+- `createdAt` (TIMESTAMP)
+- `updatedAt` (TIMESTAMP)
+
+### Contacts Table
+- `id` (UUID, Primary Key)
+- `name` (VARCHAR)
+- `email` (VARCHAR, Nullable)
+- `phone` (VARCHAR, Nullable)
+- `photo` (VARCHAR, Nullable)
+- `ownerId` (UUID, Foreign Key to Users)
+- `createdAt` (TIMESTAMP)
+- `updatedAt` (TIMESTAMP)
+
+## 🚀 Deployment
+
+### Backend Deployment
+```bash
+cd backend
+npm run build
+npm run start:prod
+```
+
+### Frontend Deployment
+```bash
+cd frontend
+npm run build
+# Deploy the dist folder to your hosting service
+```
+
+## 🧪 Testing
+
+```bash
+# Backend tests
+cd backend
+npm run test
+npm run test:e2e
+
+# Frontend tests (if configured)
+cd frontend
+npm run test
+```
+
+## 📁 Project Structure
+
+```
+ShiftgroupProject/
+├── backend/                 # NestJS backend
+│   ├── src/
+│   │   ├── auth/           # Authentication module
+│   │   ├── contacts/       # Contacts module
+│   │   ├── users/          # Users module
+│   │   ├── entities/       # Database entities
+│   │   ├── dto/            # Data transfer objects
+│   │   └── migrations/     # Database migrations
+│   └── uploads/            # File uploads
+├── frontend/                # React frontend
+│   ├── src/
+│   │   ├── components/     # Reusable components
+│   │   ├── pages/          # Page components
+│   │   ├── store/          # State management
+│   │   └── api/            # API client
+│   └── public/             # Static assets
+└── docker-compose.yml      # Database setup
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 👨‍💻 Developer
+
+**Mani Rastegari**
+
+---
+
+## 🆘 Support
+
+If you encounter any issues or have questions:
+
+1. Check the [Issues](../../issues) page
+2. Review the API documentation above
+3. Ensure all environment variables are set correctly
+4. Verify database connection and migrations
+
+## 🔄 Recent Updates
+
+- Fixed JWT strategy token structure
+- Added proper role-based access control
+- Improved frontend authorization logic
+- Enhanced responsive design and image handling
+- Added comprehensive error handling
+- Improved user experience with better loading states

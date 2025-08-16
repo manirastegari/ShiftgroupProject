@@ -22,13 +22,13 @@ export class AuthService {
     const existing = await this.usersService.findByEmail(email);
     if (existing) throw new ConflictException('Email already in use');
     const user = await this.usersService.createUser(name, email, password, 'user');
-    const token = await this.jwtService.signAsync({ sub: user.id, role: user.role });
+    const token = await this.jwtService.signAsync({ userId: user.id, role: user.role });
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 
   async login(email: string, password: string) {
     const user = await this.validateUser(email, password);
-    const token = await this.jwtService.signAsync({ sub: user.id, role: user.role });
+    const token = await this.jwtService.signAsync({ userId: user.id, role: user.role });
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 }
