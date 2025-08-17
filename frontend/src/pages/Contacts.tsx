@@ -1,9 +1,9 @@
-// ... existing imports ...
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import { useTheme } from '../hooks/useTheme';
 
 type Contact = {
   id: string;
@@ -28,6 +28,18 @@ export default function Contacts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentUser = useAuthStore((s) => s.user);
+  const { colors, components } = useTheme();
+
+  // Filter contacts based on search term
+  const filteredContacts = useMemo(() => {
+    if (!search.trim()) return contacts;
+    
+    const searchLower = search.toLowerCase();
+    return contacts.filter(contact => 
+      contact.name.toLowerCase().includes(searchLower) ||
+      (contact.email && contact.email.toLowerCase().includes(searchLower))
+    );
+  }, [contacts, search]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit]);
 
@@ -35,11 +47,16 @@ export default function Contacts() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.get('/contacts', { params: { page, limit, search: search || undefined, sortBy, sortOrder } });
+      const { data } = await api.get('/contacts', { params: { page, limit, sortBy, sortOrder } });
       setContacts(data.data);
       setTotal(data.total);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to fetch');
+    } catch (err: unknown) {
+      const errorMessage = err && typeof err === 'object' && 'response' in err && 
+        err.response && typeof err.response === 'object' && 'data' in err.response &&
+        err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data
+        ? String(err.response.data.message)
+        : 'Failed to fetch';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -47,7 +64,7 @@ export default function Contacts() {
 
   useEffect(() => {
     fetchData();
-  }, [page, limit, search, sortBy, sortOrder]);
+  }, [page, limit, sortBy, sortOrder]);
 
   const canEditContact = (contact: Contact) => {
     return currentUser?.role === 'admin' || currentUser?.id === contact.ownerId;
@@ -58,46 +75,99 @@ export default function Contacts() {
     try {
       await api.delete(`/contacts/${contact.id}`);
       fetchData();
-    } catch {
+    } catch (err: unknown) {
+      console.error('Failed to delete contact:', err);
       alert('Failed to delete contact');
     }
   };
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); // Reset to first page when searching
+  };
+
   return (
     <div className="space-y-4">
-      {/* Header Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <h1 className="text-lg font-bold text-gray-900 mb-3">Contact Management</h1>
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <div className="flex-1 min-w-0">
-            <input
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      {/* User Info Header */}
+      {currentUser && (
+        <div className={`${colors.bg.secondary} ${colors.border.primary} border rounded-lg p-4 shadow-sm`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+              {/* {currentUser.name.charAt(0).toUpperCase()} */}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className={`font-semibold ${colors.text.primary} truncate`}>
+                <span className="font-bold">Name:</span> {currentUser.name}
+              </span>
+              <span className={`text-sm ${colors.text.secondary}`}>
+                <span className="font-bold">Email:</span> {currentUser.email}
+              </span>
+              <span className={`text-xs ${colors.text.muted} capitalize`}>
+                <span className="font-bold">Role:</span> {currentUser.role === "admin" ? "Admin" : "User"}
+              </span>
+            </div>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <select
-              className="border border-gray-300 rounded-md px-2 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'name' | 'createdAt')}
-            >
-              <option value="createdAt">Created Date</option>
-              <option value="name">Name</option>
-            </select>
-            <select
-              className="border border-gray-300 rounded-md px-2 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as 'ASC' | 'DESC')}
-            >
-              <option value="DESC">Descending</option>
-              <option value="ASC">Ascending</option>
-            </select>
+        </div>
+      )}
+
+      {/* Header Section */}
+      <div className={`${colors.bg.card} ${colors.border.primary} border rounded-lg shadow-sm p-6`}>
+        <h1 className={`text-2xl font-bold ${colors.text.primary} mb-6`}>Contact Management</h1>
+        
+        {/* Search and Controls Row */}
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="w-full">
+            <div className="relative">
+              <input
+                className={`w-full ${components.input} text-base pl-12 py-3 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
+                placeholder="Search by name or email..."
+                value={search}
+                onChange={handleSearchChange}
+              />
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            {search && (
+              <div className="mt-2 text-sm text-gray-500">
+                Found {filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+
+          {/* Controls Row */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            {/* Sort Controls */}
+            <div className="flex gap-3">
+              <select
+                className={`${components.input} text-sm px-4 py-2 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'name' | 'createdAt')}
+              >
+                <option value="createdAt">Created Date</option>
+                <option value="name">Name</option>
+              </select>
+              <select
+                className={`${components.input} text-sm px-4 py-2 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'ASC' | 'DESC')}
+              >
+                <option value="DESC">Descending</option>
+                <option value="ASC">Ascending</option>
+              </select>
+            </div>
+
+            {/* Add Contact Button */}
             <Link
               to="/contacts/new"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
               Add Contact
             </Link>
           </div>
@@ -112,89 +182,93 @@ export default function Contacts() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <div className={`bg-red-50 ${colors.border.primary} border rounded-lg p-3`}>
           <div className="text-red-800 text-xs">{error}</div>
         </div>
       )}
 
       {/* Contacts List */}
       {!loading && (
-        <div className="space-y-3">
-          {contacts.map((contact) => (
+        <div>
+          {filteredContacts.map((contact, index) => (
             <div
               key={contact.id}
-              className="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow transition"
+              className={`${colors.bg.card} ${colors.border.primary} border rounded-lg shadow-sm p-6 hover:shadow-md transition-all duration-200 ${
+                index < filteredContacts.length - 1 ? 'mb-6' : ''
+              }`}
             >
-              {/* Profile Image */}
-              <div className="flex-shrink-0">
-                {contact.photo ? (
-                  <img
-                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/${contact.photo}`}
-                    alt={contact.name}
-                    className="w-12 h-12 rounded-full object-cover border border-gray-200"
-                    onError={e => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center border border-gray-200">
-                    <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="ml-4 flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 text-sm truncate">{contact.name}</div>
-                <div className="flex items-center text-xs text-gray-600 mt-1">
-                  {contact.email && (
-                    <span className="flex items-center mr-3">
-                      <svg className="w-3 h-3 mr-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                      </svg>
-                      <span className="truncate">{contact.email}</span>
-                    </span>
-                  )}
-                  {contact.phone && (
-                    <span className="flex items-center">
-                      <svg className="w-3 h-3 mr-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                      </svg>
-                      <span className="truncate">{contact.phone}</span>
-                    </span>
+              {/* Profile Image and Info Row */}
+              <div className="flex items-start">
+                <div className="flex-shrink-0" style={{ margin: '32px' }}>
+                  {contact.photo ? (
+                    <img
+                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/${contact.photo}`}
+                      alt={contact.name}
+                      className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                      onError={e => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center border border-gray-200">
+                      <span className="text-gray-400 font-bold text-lg">
+                        {contact.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
                   )}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Created: {format(new Date(contact.createdAt), 'MMM dd, yyyy')}
-                </div>
-                {currentUser?.role === 'admin' && contact.ownerName && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Owner: <span className="font-medium">{contact.ownerName}</span>
-                  </div>
-                )}
-              </div>
 
-              {/* Actions */}
-              {canEditContact(contact) && (
-                <div className="flex flex-col gap-1 ml-4">
-                  <button
-                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-medium transition-colors"
-                    onClick={() => navigate(`/contacts/${contact.id}`)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-medium transition-colors"
-                    onClick={() => handleDelete(contact)}
-                  >
-                    Delete
-                  </button>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className={`font-semibold ${colors.text.primary} text-sm mb-2`} style={{ marginTop: '32px' }}>
+                    <span className="font-bold">Name:</span> {contact.name}
+                  </div>
+                  {/* Email */}
+                  <div className="flex items-center mb-1">
+                    {/* <span className="font-bold text-gray-400 mr-1.5 text-xs">📧</span> */}
+                    <span className={`text-xs ${colors.text.secondary}`}>
+                      <span className="font-bold">Email:</span> {contact.email || <span className="italic text-gray-400">No email</span>}
+                    </span>
+                  </div>
+                  {/* Phone */}
+                  <div className="flex items-center mb-1">
+                    {/* <span className="font-bold text-gray-400 mr-1.5 text-xs">📱</span> */}
+                    <span className={`text-xs ${colors.text.secondary}`}>
+                      <span className="font-bold">Phone:</span> {contact.phone || <span className="italic text-gray-400">No phone</span>}
+                    </span>
+                  </div>
+                  {/* Created and Owner - Owner on next line for admin view */}
+                  <div className="flex flex-col gap-1 mt-2">
+                    <span className={`text-xs ${colors.text.muted}`}>
+                      <span className="font-bold">Created:</span> {format(new Date(contact.createdAt), 'MMM dd, yyyy')}
+                    </span>
+                    {currentUser?.role === 'admin' && contact.ownerName && (
+                      <span className={`text-xs ${colors.text.muted}`}>
+                        <span className="font-bold">Owner:</span> <span className="font-medium">{contact.ownerName}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions - Now below the contact info */}
+                  {canEditContact(contact) && (
+                    <div className="flex gap-2" style={{ marginTop: '32px', paddingTop: '16px' }}>
+                      <button
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                        onClick={() => navigate(`/contacts/${contact.id}`)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-50 hover:bg-red-100 text-red-700 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                        onClick={() => handleDelete(contact)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>
@@ -202,24 +276,24 @@ export default function Contacts() {
 
       {/* Pagination */}
       {!loading && total > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className={`${colors.bg.card} ${colors.border.primary} border rounded-lg shadow-sm p-4`}>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div className="text-xs text-gray-600">
+            <div className={`text-xs ${colors.text.muted}`}>
               Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} contacts
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-xs hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className={`px-3 py-1.5 ${colors.border.secondary} border rounded-md text-xs ${colors.hover.bg} disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${colors.text.secondary}`}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
               >
                 Previous
               </button>
-              <span className="px-3 py-1.5 text-xs font-medium text-gray-700">
+              <span className={`px-3 py-1.5 text-xs font-medium ${colors.text.primary}`}>
                 Page {page} of {totalPages}
               </span>
               <button
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-xs hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className={`px-3 py-1.5 ${colors.border.secondary} border rounded-md text-xs ${colors.hover.bg} disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${colors.text.secondary}`}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
               >
@@ -231,21 +305,22 @@ export default function Contacts() {
       )}
 
       {/* Empty State */}
-      {!loading && contacts.length === 0 && !error && (
+      {!loading && filteredContacts.length === 0 && !error && (
         <div className="text-center py-8">
-          <svg className="mx-auto h-6 w-6 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <h3 className="text-sm font-medium text-gray-900 mb-1">No contacts found</h3>
-          <p className="text-xs text-gray-500 mb-4">
+          <div className="mx-auto text-gray-400 mb-3 text-2xl font-bold">👥</div>
+          <h3 className={`text-sm font-medium ${colors.text.primary} mb-1`}>No contacts found</h3>
+          <p className={`text-xs ${colors.text.muted} mb-4`}>
             {search ? `No contacts match "${search}"` : 'Get started by creating your first contact.'}
           </p>
           {!search && (
             <div className="mt-4">
               <Link
                 to="/contacts/new"
-                className="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
                 Add Contact
               </Link>
             </div>
