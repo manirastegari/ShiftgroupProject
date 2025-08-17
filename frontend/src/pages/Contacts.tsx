@@ -117,7 +117,7 @@ export default function Contacts() {
         {/* Search and Controls Row */}
         <div className="space-y-4">
           {/* Search Bar */}
-          <div className="w-full">
+          <div className="w-full" style={{ width: '99%' }}>
             <div className="relative">
               <input
                 className={`w-full ${components.input} text-base pl-12 py-3 rounded-lg border-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200`}
